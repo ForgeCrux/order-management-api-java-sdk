@@ -1,0 +1,350 @@
+openapi: 3.0.3
+info:
+  description: |
+    An e-commerce order management API — heavier on numeric/currency fields and array-of-object request bodies (line items) than the other three example specs, to exercise mock-data generation and negative/boundary test scenarios differently (amounts, quantities, nested item arrays).
+  title: Order Management API
+  version: 1.0.0
+servers:
+- url: https://api.orders.example.com/v1
+paths:
+  /orders:
+    get:
+      description: "Returns orders, optionally filtered by status or customer."
+      operationId: listOrders
+      parameters:
+      - description: Filter by order status
+        explode: true
+        in: query
+        name: status
+        required: false
+        schema:
+          enum:
+          - PENDING
+          - PAID
+          - SHIPPED
+          - DELIVERED
+          - CANCELLED
+          - REFUNDED
+          type: string
+        style: form
+      - description: Filter by customer ID
+        explode: true
+        in: query
+        name: customerId
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: Maximum number of orders to return
+        explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 25
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Order"
+                type: array
+          description: Matching orders
+      summary: List orders
+      x-accepts:
+      - application/json
+    post:
+      description: Places a new order for a customer with one or more line items and
+        a shipping address.
+      operationId: createOrder
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/createOrder_request"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+          description: Order created
+      summary: Create a new order
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /orders/{orderId}:
+    get:
+      description: Retrieves full order details including line items and totals.
+      operationId: getOrderById
+      parameters:
+      - description: Unique ID of the order
+        explode: false
+        in: path
+        name: orderId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+          description: Order found
+        "404":
+          description: Order not found
+      summary: Get an order by ID
+      x-accepts:
+      - application/json
+  /orders/{orderId}/cancel:
+    post:
+      description: Cancels an order that has not yet shipped.
+      operationId: cancelOrder
+      parameters:
+      - description: Unique ID of the order to cancel
+        explode: false
+        in: path
+        name: orderId
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/cancelOrder_request"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+          description: Order cancelled
+      summary: Cancel an order
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /orders/{orderId}/refund:
+    post:
+      description: Issues a refund for all or part of a paid order's total.
+      operationId: refundOrder
+      parameters:
+      - description: Unique ID of the order to refund
+        explode: false
+        in: path
+        name: orderId
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/refundOrder_request"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefundResult"
+          description: Refund issued
+      summary: Refund an order (fully or partially)
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /products/{productId}/inventory:
+    get:
+      description: Returns the current available quantity for a product across all
+        warehouses.
+      operationId: getProductInventory
+      parameters:
+      - description: Unique ID of the product
+        explode: false
+        in: path
+        name: productId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryLevel"
+          description: Inventory level
+      summary: Check a product's current stock level
+      x-accepts:
+      - application/json
+components:
+  schemas:
+    OrderItem:
+      example:
+        quantity: 0
+        productId: productId
+        unitPriceCents: 6
+      properties:
+        productId:
+          type: string
+          x-primaryKey: true
+        quantity:
+          type: integer
+        unitPriceCents:
+          type: integer
+      required:
+      - productId
+      type: object
+      x-domain: Banking & Finance
+    Order:
+      example:
+        createdAt: 2000-01-23T04:56:07.000+00:00
+        totalCents: 1
+        customerId: customerId
+        id: id
+        items:
+        - quantity: 0
+          productId: productId
+          unitPriceCents: 6
+        - quantity: 0
+          productId: productId
+          unitPriceCents: 6
+        couponCode: couponCode
+        status: PENDING
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        status:
+          enum:
+          - PENDING
+          - PAID
+          - SHIPPED
+          - DELIVERED
+          - CANCELLED
+          - REFUNDED
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/OrderItem"
+          type: array
+        totalCents:
+          type: integer
+        couponCode:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+      type: object
+    RefundResult:
+      example:
+        refundedAt: 2000-01-23T04:56:07.000+00:00
+        reason: reason
+        amountCents: 0
+        orderId: orderId
+      properties:
+        orderId:
+          type: string
+        amountCents:
+          type: integer
+        reason:
+          type: string
+        refundedAt:
+          format: date-time
+          type: string
+      type: object
+    InventoryLevel:
+      example:
+        availableQuantity: 0
+        productId: productId
+        lastUpdatedAt: 2000-01-23T04:56:07.000+00:00
+        warehouseCount: 6
+      properties:
+        productId:
+          type: string
+        availableQuantity:
+          type: integer
+        warehouseCount:
+          type: integer
+        lastUpdatedAt:
+          format: date-time
+          type: string
+      type: object
+    createOrder_request_items_inner:
+      properties:
+        productId:
+          type: string
+        quantity:
+          type: integer
+        unitPriceCents:
+          type: integer
+      required:
+      - productId
+      - quantity
+      type: object
+    createOrder_request_shippingAddress:
+      description: Delivery address for this order
+      properties:
+        line1:
+          type: string
+        city:
+          type: string
+        postalCode:
+          type: string
+        country:
+          type: string
+      type: object
+    createOrder_request:
+      properties:
+        customerId:
+          description: ID of the customer placing the order
+          type: string
+        items:
+          description: Line items in this order
+          items:
+            $ref: "#/components/schemas/createOrder_request_items_inner"
+          type: array
+        shippingAddress:
+          $ref: "#/components/schemas/createOrder_request_shippingAddress"
+        couponCode:
+          description: Optional discount coupon to apply
+          type: string
+      required:
+      - customerId
+      - items
+      - shippingAddress
+      type: object
+    cancelOrder_request:
+      properties:
+        reason:
+          description: Why the order is being cancelled
+          type: string
+      required:
+      - reason
+      type: object
+    refundOrder_request:
+      properties:
+        amountCents:
+          description: "Amount to refund, in cents"
+          type: integer
+        reason:
+          description: Reason for the refund
+          type: string
+        notifyCustomer:
+          description: Whether to email the customer about this refund
+          type: boolean
+      required:
+      - amountCents
+      - reason
+      type: object
+
