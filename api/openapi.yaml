@@ -196,15 +196,11 @@ components:
       properties:
         productId:
           type: string
-          x-primaryKey: true
         quantity:
           type: integer
         unitPriceCents:
           type: integer
-      required:
-      - productId
       type: object
-      x-domain: Banking & Finance
     Order:
       example:
         createdAt: 2000-01-23T04:56:07.000+00:00

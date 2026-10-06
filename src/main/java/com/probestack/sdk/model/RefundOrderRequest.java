@@ -32,7 +32,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
   RefundOrderRequest.JSON_PROPERTY_NOTIFY_CUSTOMER
 })
 @JsonTypeName("refundOrder_request")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-09-18T07:34:32.000683723Z[GMT]", comments = "Generator version: 7.9.0")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-10-06T06:06:32.426875943Z[GMT]", comments = "Generator version: 7.9.0")
 public class RefundOrderRequest {
   public static final String JSON_PROPERTY_AMOUNT_CENTS = "amountCents";
   private Integer amountCents;

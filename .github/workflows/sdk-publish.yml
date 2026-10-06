@@ -1,0 +1,163 @@
+# Managed by ForgeStudio - rewritten on every push from ForgeStudio.
+#
+# Flow (same shape as the ForgeStudio MCP server pipeline):
+#   1. build-and-test - every push and pull request: build the SDK and run its tests.
+#   2. publish-to-artifact-registry - only for a push to the default branch whose commit
+#      changed .forgestudio/release.json (written by ForgeStudio's Publish action):
+#      stamp the release's package name and version, publish to Artifact Registry.
+
+name: SDK CI/CD
+
+on:
+  push:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  workflow_dispatch:
+
+# Unlike the MCP deploy, a release is never cancelled half-way: a
+# cancelled publish can leave a version partly uploaded.
+concurrency:
+  group: sdk-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID:                 probestack-prod
+  REGION:                     us-central1
+  REPOSITORY:                 forgestudio-sdk-maven
+  SERVICE_ACCOUNT_EMAIL:      github-actions-forgecrux@probestack-prod.iam.gserviceaccount.com
+  WORKLOAD_IDENTITY_PROVIDER: projects/861433193200/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  RELEASE_MANIFEST:           .forgestudio/release.json
+
+jobs:
+  # ───────────────────────────── 1. Test ─────────────────────────────
+  test:
+    name: build-and-test
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.release.outputs.release }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build and test
+        run: mvn -B -ntp package
+
+      - name: Detect release request
+        id: release
+        run: |
+          release=false
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]] \
+            && git diff --name-only HEAD~1 HEAD | grep -qx "${RELEASE_MANIFEST}"; then
+            release=true
+          fi
+          echo "release=${release}" >> "$GITHUB_OUTPUT"
+
+  # ──────────────── 2. Publish to Artifact Registry ────────────────
+  publish:
+    name: publish-to-artifact-registry
+    needs: test
+    if: needs.test.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account:            ${{ env.SERVICE_ACCOUNT_EMAIL }}
+          token_format:               access_token
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Read release manifest
+        run: |
+          name=$(jq -er '.packageName' "${RELEASE_MANIFEST}")
+          version=$(jq -er '.packageVersion' "${RELEASE_MANIFEST}")
+          [[ "${name}" =~ ^[@a-z0-9._:/-]+$ ]] || { echo "::error::Invalid package name in ${RELEASE_MANIFEST}"; exit 1; }
+          [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::Invalid package version in ${RELEASE_MANIFEST}"; exit 1; }
+          echo "PACKAGE_NAME=${name}" >> "$GITHUB_ENV"
+          echo "PACKAGE_VERSION=${version}" >> "$GITHUB_ENV"
+
+      - name: Ensure Artifact Registry repository exists
+        run: |
+          if ! gcloud artifacts repositories describe "${REPOSITORY}" --location="${REGION}" --project="${PROJECT_ID}" > /dev/null 2>&1; then
+            gcloud artifacts repositories create "${REPOSITORY}" --repository-format=maven \
+              --location="${REGION}" --project="${PROJECT_ID}" --description="ForgeStudio generated SDKs" \
+              || { echo "::error::Artifact Registry repository ${REPOSITORY} does not exist and ${SERVICE_ACCOUNT_EMAIL} cannot create it."; exit 1; }
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+          server-id: artifact-registry
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+
+      - name: Set package coordinates and version
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          group, artifact = os.environ["PACKAGE_NAME"].split(":")
+          pom = pathlib.Path("pom.xml")
+          text = pom.read_text()
+          if "<parent>" in text:
+              raise SystemExit("pom.xml declares a <parent>; cannot stamp project coordinates")
+          text = re.sub(r"<groupId>[^<]*</groupId>", f"<groupId>{group}</groupId>", text, count=1)
+          text = re.sub(r"<artifactId>[^<]*</artifactId>", f"<artifactId>{artifact}</artifactId>", text, count=1)
+          pom.write_text(text)
+          PY
+          mvn -B -ntp -q versions:set "-DnewVersion=${PACKAGE_VERSION}" -DgenerateBackupPoms=false
+
+      - name: Publish Maven package
+        env:
+          MAVEN_USERNAME: oauth2accesstoken
+          MAVEN_PASSWORD: ${{ steps.auth.outputs.access_token }}
+        run: |
+          mvn -B -ntp deploy -DskipTests \
+            "-DaltDeploymentRepository=artifact-registry::https://${REGION}-maven.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
+
+      - name: Write release summary
+        run: |
+          {
+            echo "## SDK published"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| **Package**  | \`${PACKAGE_NAME}\` |"
+            echo "| **Version**  | \`${PACKAGE_VERSION}\` |"
+            echo "| **Registry** | \`${REGION}/${PROJECT_ID}/${REPOSITORY}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

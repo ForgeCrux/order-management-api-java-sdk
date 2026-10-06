@@ -4,7 +4,7 @@ Order Management API
 
 - API version: 1.0.0
 
-- Build date: 2026-09-18T07:34:32.000683723Z[GMT]
+- Build date: 2026-10-06T06:06:32.426875943Z[GMT]
 
 - Generator version: 7.9.0
 

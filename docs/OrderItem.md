@@ -7,7 +7,7 @@
 
 | Name | Type | Description | Notes |
 |------------ | ------------- | ------------- | -------------|
-|**productId** | **String** |  |  |
+|**productId** | **String** |  |  [optional] |
 |**quantity** | **Integer** |  |  [optional] |
 |**unitPriceCents** | **Integer** |  |  [optional] |
 

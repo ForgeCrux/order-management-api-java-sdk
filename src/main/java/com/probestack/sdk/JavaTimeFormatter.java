@@ -20,7 +20,8 @@ import java.time.format.DateTimeParseException;
  * Class that add parsing/formatting support for Java 8+ {@code OffsetDateTime} class.
  * It's generated for java clients when {@code AbstractJavaCodegen#dateLibrary} specified as {@code java8}.
  */
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-09-18T07:34:32.000683723Z[GMT]", comments = "Generator version: 7.9.0")public class JavaTimeFormatter {
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-10-06T06:06:32.426875943Z[GMT]", comments = "Generator version: 7.9.0")
+public class JavaTimeFormatter {
 
     private DateTimeFormatter offsetDateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
