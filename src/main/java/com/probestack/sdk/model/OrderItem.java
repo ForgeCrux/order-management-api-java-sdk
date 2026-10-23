@@ -31,7 +31,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
   OrderItem.JSON_PROPERTY_QUANTITY,
   OrderItem.JSON_PROPERTY_UNIT_PRICE_CENTS
 })
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-10-06T06:06:32.426875943Z[GMT]", comments = "Generator version: 7.9.0")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-10-23T12:20:57.003079946Z[GMT]", comments = "Generator version: 7.9.0")
 public class OrderItem {
   public static final String JSON_PROPERTY_PRODUCT_ID = "productId";
   private String productId;

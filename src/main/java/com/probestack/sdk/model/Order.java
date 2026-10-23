@@ -40,7 +40,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
   Order.JSON_PROPERTY_COUPON_CODE,
   Order.JSON_PROPERTY_CREATED_AT
 })
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-10-06T06:06:32.426875943Z[GMT]", comments = "Generator version: 7.9.0")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-10-23T12:20:57.003079946Z[GMT]", comments = "Generator version: 7.9.0")
 public class Order {
   public static final String JSON_PROPERTY_ID = "id";
   private String id;
